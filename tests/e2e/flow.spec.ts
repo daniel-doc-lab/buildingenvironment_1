@@ -55,8 +55,13 @@ test("godkend, betal med MitID (sandbox) og se batch", async ({ page }) => {
 
 test("AI-assistenten svarer på spørgsmål", async ({ page }) => {
   await loginAs(page);
-  await page.keyboard.press("Control+k");
-  await page.getByPlaceholder(/Spørg om fakturaer/).fill("Hvad forfalder i denne uge?");
+  // Genvejen virker først, når siden er hydreret – tryk igen, indtil paletten åbner.
+  const input = page.getByPlaceholder(/Spørg om fakturaer/);
+  await expect(async () => {
+    if (!(await input.isVisible())) await page.keyboard.press("Control+k");
+    await expect(input).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 20000 });
+  await input.fill("Hvad forfalder i denne uge?");
   await page.keyboard.press("Enter");
   await expect(page.getByText(/forfalder|Der forfalder ingen/).first()).toBeVisible();
 });

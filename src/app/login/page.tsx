@@ -5,12 +5,19 @@ import { LoginForm } from "./login-form";
 import { demoLoginAction } from "../auth-actions";
 import { DEMO_USERS } from "@/server/demo/catalog";
 import { ROLE_LABELS } from "@/server/auth";
+import { PendingButton } from "@/components/pending-button";
+
+const ERRORS: Record<string, string> = {
+  start: "Fluks starter op og gør demoen klar. Det tager op til et halvt minut første gang – prøv igen om et øjeblik.",
+  demo: "Demobrugeren blev ikke fundet. Prøv igen om et øjeblik.",
+};
 
 export const metadata: Metadata = { title: "Log ind" };
 
 export default async function LoginPage(props: PageProps<"/login">) {
   const sp = await props.searchParams;
   const next = typeof sp.next === "string" ? sp.next : "/app";
+  const error = typeof sp.error === "string" ? ERRORS[sp.error] : undefined;
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col justify-between p-6 sm:p-10">
@@ -30,17 +37,25 @@ export default async function LoginPage(props: PageProps<"/login">) {
           <div className="mt-8 rounded-2xl border border-dashed border-line-strong bg-surface p-4">
             <p className="text-sm font-medium">Prøv demoen uden at oprette konto</p>
             <p className="mt-0.5 text-xs text-muted">Log ind som en af brugerne i demovirksomheden Nordlys Ejendomme ApS.</p>
+            {error ? (
+              <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
+                {error}
+              </p>
+            ) : null}
             <div className="mt-3 grid gap-2">
               {DEMO_USERS.slice(0, 4).map((u) => (
                 <form key={u.email} action={demoLoginAction}>
                   <input type="hidden" name="as" value={u.email} />
-                  <button className="flex w-full items-center justify-between rounded-xl border border-line bg-surface px-3 py-2 text-left text-sm transition hover:border-brand hover:bg-brand-soft/40">
+                  <PendingButton
+                    pendingLabel={<span className="flex-1 font-medium">Logger ind som {u.name}… (første gang op til 30 sek.)</span>}
+                    className="flex w-full items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left text-sm transition hover:border-brand hover:bg-brand-soft/40 disabled:border-brand disabled:bg-brand-soft/40"
+                  >
                     <span>
                       <span className="font-medium">{u.name}</span>
                       <span className="text-muted"> · {u.title}</span>
                     </span>
                     <span className="text-xs text-muted">{ROLE_LABELS[u.role]}</span>
-                  </button>
+                  </PendingButton>
                 </form>
               ))}
             </div>
