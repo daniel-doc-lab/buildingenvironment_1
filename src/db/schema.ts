@@ -70,6 +70,7 @@ export type CompanySettings = {
   defaultPaymentAccountId?: string;
   propertyModule?: boolean;
   onboardingDone?: boolean;
+  seedComplete?: boolean; // sættes på demovirksomheden, når demodata er skrevet i én transaktion
 };
 
 export const companies = pgTable("companies", {

@@ -22,8 +22,14 @@ function safeNext(next: unknown) {
 export async function loginAction(_: FormState, form: FormData): Promise<FormState> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
-  const db = await getDb();
-  const user = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
+  let user: typeof schema.users.$inferSelect | undefined;
+  try {
+    const db = await getDb();
+    user = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
+  } catch (e) {
+    console.error("Login: databasen er ikke klar", e);
+    return { error: "Fluks starter stadig op. Prøv igen om et øjeblik." };
+  }
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) return { error: "Forkert e-mail eller adgangskode" };
   await createSession({ uid: user.id, cid: user.lastCompanyId ?? undefined });
   redirect(safeNext(form.get("next")));
@@ -31,8 +37,14 @@ export async function loginAction(_: FormState, form: FormData): Promise<FormSta
 
 export async function demoLoginAction(form: FormData) {
   const as = String(form.get("as") ?? "demo@fluks.dk");
-  const db = await getDb();
-  const user = await db.query.users.findFirst({ where: eq(schema.users.email, as) });
+  let user: typeof schema.users.$inferSelect | undefined;
+  try {
+    const db = await getDb();
+    user = await db.query.users.findFirst({ where: eq(schema.users.email, as) });
+  } catch (e) {
+    console.error("Demo-login: databasen er ikke klar", e);
+    redirect("/login?error=start");
+  }
   if (!user || !(await bcrypt.compare(DEMO_PASSWORD, user.passwordHash))) redirect("/login?error=demo");
   await createSession({ uid: user.id });
   redirect("/app");

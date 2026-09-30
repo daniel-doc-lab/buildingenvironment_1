@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { demoLoginAction } from "./auth-actions";
+import { PendingButton } from "@/components/pending-button";
 
 const FEATURES = [
   { icon: ScanLine, title: "AI-aflæsning på sekunder", text: "PDF, foto, e-mail eller NemHandel. AI læser leverandør, beløb, moms, FI-kort og linjer – med sikkerhed pr. felt, så du kun tjekker det, der er i tvivl." },
@@ -101,9 +102,12 @@ export default function Landing() {
             <div className="mt-8 flex flex-wrap gap-3">
               <form action={demoLoginAction}>
                 <input type="hidden" name="as" value="demo@fluks.dk" />
-                <button className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand px-6 text-[15px] font-semibold text-white shadow-card hover:bg-brand-hover">
+                <PendingButton
+                  pendingLabel="Åbner demoen…"
+                  className="inline-flex h-12 items-center gap-2 rounded-xl bg-brand px-6 text-[15px] font-semibold text-white shadow-card hover:bg-brand-hover disabled:opacity-80"
+                >
                   Prøv demoen nu <ArrowRight className="h-4 w-4" />
-                </button>
+                </PendingButton>
               </form>
               <Link href="/signup" className="inline-flex h-12 items-center rounded-xl border border-line-strong bg-surface px-6 text-[15px] font-semibold hover:bg-surface-2">
                 Opret konto gratis
@@ -303,7 +307,9 @@ export default function Landing() {
             </Link>
             <form action={demoLoginAction}>
               <input type="hidden" name="as" value="demo@fluks.dk" />
-              <button className="inline-flex h-12 items-center rounded-xl border border-white/40 px-6 font-semibold">Se demo</button>
+              <PendingButton pendingLabel="Åbner demoen…" className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/40 px-6 font-semibold disabled:opacity-80">
+                Se demo
+              </PendingButton>
             </form>
           </div>
         </div>

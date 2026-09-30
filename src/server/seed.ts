@@ -1,6 +1,6 @@
 import "server-only";
 import bcrypt from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import type { DB } from "@/db";
 import { schema } from "@/db";
 import { STANDARD_ACCOUNTS, STANDARD_DEPARTMENTS, STANDARD_VAT } from "@/integrations/accounting/standard-chart";
@@ -31,11 +31,32 @@ for (const s of [...DEMO_SUPPLIERS, ...NEW_SUPPLIER_EXAMPLES]) {
 }
 
 export async function ensureDemoData(db: DB) {
-  const existing = await db.query.companies.findFirst({ where: eq(schema.companies.isDemo, true), columns: { id: true } });
-  if (existing) return;
-  seeding ??= seedDemo(db).finally(() => {
-    seeding = null;
+  const existing = await db.query.companies.findFirst({
+    where: eq(schema.companies.isDemo, true),
+    columns: { id: true, settings: true },
   });
+  if (existing) {
+    if (existing.settings.seedComplete) return;
+    // Demodata fra før markøren fandtes: behold den, hvis den er komplet – ellers er den
+    // efterladt af en afbrudt seeding, og så bygges den forfra.
+    const [members] = await db.select({ n: count() }).from(schema.memberships).where(eq(schema.memberships.companyId, existing.id));
+    const [invs] = await db.select({ n: count() }).from(schema.invoices).where(eq(schema.invoices.companyId, existing.id));
+    if ((members?.n ?? 0) >= DEMO_USERS.length && (invs?.n ?? 0) >= 50) {
+      await db
+        .update(schema.companies)
+        .set({ settings: { ...existing.settings, seedComplete: true } })
+        .where(eq(schema.companies.id, existing.id));
+      return;
+    }
+    await db.delete(schema.companies).where(eq(schema.companies.id, existing.id));
+  }
+  // Én transaktion: bliver seedingen afbrudt (fx timeout på en serverless-funktion),
+  // efterlades ingen halve data.
+  seeding ??= db
+    .transaction((tx) => seedDemo(tx as unknown as DB))
+    .finally(() => {
+      seeding = null;
+    });
   await seeding;
 }
 
@@ -122,6 +143,7 @@ async function seedDemoInner(db: DB) {
         reminderHours: 24,
         propertyModule: true,
         onboardingDone: true,
+        seedComplete: true,
       },
     })
     .returning();

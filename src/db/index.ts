@@ -6,11 +6,12 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 export type DB = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-type Holder = { db?: DB; ready?: Promise<void>; kind?: "postgres" | "pglite" };
+type Holder = { db?: DB; ready?: Promise<void>; kind?: "postgres" | "pglite"; lastError?: string };
 const g = globalThis as unknown as { __fluksDb?: Holder };
 const holder: Holder = (g.__fluksDb ??= {});
 
 const MIGRATIONS = path.join(process.cwd(), "drizzle");
+const LOCK_WAIT_MS = Number(process.env.DB_LOCK_WAIT_MS ?? 90_000);
 
 async function init(): Promise<void> {
   const url = process.env.DATABASE_URL;
@@ -21,17 +22,32 @@ async function init(): Promise<void> {
     const db = drizzle(pool, { schema });
     // Flere serverless-instanser kan starte samtidig (fx på Vercel). En advisory lock på en
     // direkte (ikke-poolet) forbindelse sikrer, at kun én ad gangen migrerer og seeder.
+    // Vi venter højst LOCK_WAIT_MS, så en hængende instans aldrig blokerer alle andre.
     const lock = new Pool({ connectionString: process.env.DATABASE_URL_UNPOOLED ?? url, max: 1 });
-    const client = await lock.connect();
+    let locked = false;
+    const client = await lock.connect().catch(async (e) => {
+      await Promise.all([lock.end(), pool.end()]).catch(() => {});
+      throw e;
+    });
     try {
-      await client.query("select pg_advisory_lock(7428190)");
+      const deadline = Date.now() + LOCK_WAIT_MS;
+      while (!locked) {
+        const res = await client.query<{ ok: boolean }>("select pg_try_advisory_lock(7428190) as ok");
+        locked = res.rows[0]?.ok === true;
+        if (locked) break;
+        if (Date.now() > deadline) throw new Error("Databasen klargøres stadig af en anden server – prøv igen om et øjeblik");
+        await new Promise((r) => setTimeout(r, 500));
+      }
       if (process.env.AUTO_MIGRATE !== "false") {
         const { migrate } = await import("drizzle-orm/node-postgres/migrator");
         await migrate(db, { migrationsFolder: MIGRATIONS });
       }
       await seed(db as unknown as DB);
+    } catch (e) {
+      await pool.end().catch(() => {});
+      throw e;
     } finally {
-      await client.query("select pg_advisory_unlock(7428190)").catch(() => {});
+      if (locked) await client.query("select pg_advisory_unlock(7428190)").catch(() => {});
       client.release();
       await lock.end();
     }
@@ -67,16 +83,28 @@ async function seed(db: DB) {
 /** Returnerer en klar database (migreret og evt. seedet). */
 export async function getDb(): Promise<DB> {
   if (holder.db) return holder.db;
-  holder.ready ??= init().catch((e) => {
-    holder.ready = undefined;
-    throw e;
-  });
+  holder.ready ??= init().then(
+    () => {
+      holder.lastError = undefined;
+    },
+    (e) => {
+      holder.ready = undefined;
+      holder.lastError = e instanceof Error ? e.message : String(e);
+      console.error("Database kunne ikke klargøres:", e);
+      throw e;
+    },
+  );
   await holder.ready;
   return holder.db!;
 }
 
 export function dbKind() {
   return holder.kind;
+}
+
+/** Til /api/health: hvilken database der bruges, og seneste fejl ved opstart. */
+export function dbStatus() {
+  return { kind: holder.kind ?? (process.env.DATABASE_URL ? "postgres" : "pglite"), ready: !!holder.db, lastError: holder.lastError };
 }
 
 export { schema };
