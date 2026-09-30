@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f5f7f6;
+  --surface: #ffffff;
+  --surface-2: #f0f3f1;
+  --ink: #0f1f1a;
+  --ink-2: #33443e;
+  --muted: #62716b;
+  --line: #e2e8e4;
+  --line-strong: #cfd8d3;
+  --brand: #0b6b4f;
+  --brand-hover: #09593f;
+  --brand-soft: #e3f3ec;
+  --brand-ink: #064a37;
+  --accent: #c8f169;
+  --danger: #c2372c;
+  --danger-soft: #fdecea;
+  --warning: #a86200;
+  --warning-soft: #fff4e0;
+  --info: #1f5fbf;
+  --info-soft: #e8f0fd;
+  --success: #0b7a4a;
+  --success-soft: #e2f5ea;
+  --ring: #0b6b4f55;
+  --shadow: 0 1px 2px rgb(15 31 26 / 0.05), 0 1px 1px rgb(15 31 26 / 0.03);
+  --shadow-lg: 0 12px 32px -12px rgb(15 31 26 / 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg: #0c1311;
+    --surface: #121b18;
+    --surface-2: #17221e;
+    --ink: #e8efec;
+    --ink-2: #c3cfca;
+    --muted: #8a9993;
+    --line: #22302b;
+    --line-strong: #2e3e38;
+    --brand: #2bb383;
+    --brand-hover: #35c592;
+    --brand-soft: #123429;
+    --brand-ink: #9be3c7;
+    --danger: #ef6a5e;
+    --danger-soft: #3a1714;
+    --warning: #f0a93b;
+    --warning-soft: #33250f;
+    --info: #74a6f2;
+    --info-soft: #142440;
+    --success: #4ccf8e;
+    --success-soft: #11301f;
+    --ring: #2bb38366;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--brand-soft);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-in {
+  animation: fade-in 180ms ease-out both;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  animation: shimmer 1.4s infinite;
+}
+
+dialog::backdrop {
+  background: rgb(10 20 16 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
