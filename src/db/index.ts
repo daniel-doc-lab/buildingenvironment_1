@@ -19,15 +19,32 @@ async function init(): Promise<void> {
     const { drizzle } = await import("drizzle-orm/node-postgres");
     const pool = new Pool({ connectionString: url, max: Number(process.env.DB_POOL_SIZE ?? 5) });
     const db = drizzle(pool, { schema });
-    if (process.env.AUTO_MIGRATE !== "false") {
-      const { migrate } = await import("drizzle-orm/node-postgres/migrator");
-      await migrate(db, { migrationsFolder: MIGRATIONS });
+    // Flere serverless-instanser kan starte samtidig (fx på Vercel). En advisory lock på en
+    // direkte (ikke-poolet) forbindelse sikrer, at kun én ad gangen migrerer og seeder.
+    const lock = new Pool({ connectionString: process.env.DATABASE_URL_UNPOOLED ?? url, max: 1 });
+    const client = await lock.connect();
+    try {
+      await client.query("select pg_advisory_lock(7428190)");
+      if (process.env.AUTO_MIGRATE !== "false") {
+        const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+        await migrate(db, { migrationsFolder: MIGRATIONS });
+      }
+      await seed(db as unknown as DB);
+    } finally {
+      await client.query("select pg_advisory_unlock(7428190)").catch(() => {});
+      client.release();
+      await lock.end();
     }
     holder.db = db as unknown as DB;
     holder.kind = "postgres";
   } else {
     // Indlejret Postgres (PGlite) – kræver ingen opsætning. Perfekt til demo og udvikling.
-    const dir = process.env.PGLITE_DIR ?? path.join(process.cwd(), ".data", "pglite");
+    // På Vercel er kun /tmp skrivbar; data lever da kun i den enkelte instans (brug DATABASE_URL).
+    const dir =
+      process.env.PGLITE_DIR ?? (process.env.VERCEL ? "/tmp/fluks-pglite" : path.join(process.cwd(), ".data", "pglite"));
+    if (process.env.VERCEL && !process.env.PGLITE_DIR) {
+      console.warn("Fluks: DATABASE_URL mangler – bruger midlertidig PGlite i /tmp. Tilføj Neon/Postgres for vedvarende data.");
+    }
     if (dir !== "memory://") fs.mkdirSync(dir, { recursive: true });
     const { PGlite } = await import("@electric-sql/pglite");
     const { drizzle } = await import("drizzle-orm/pglite");
@@ -35,13 +52,16 @@ async function init(): Promise<void> {
     const db = drizzle(client, { schema });
     const { migrate } = await import("drizzle-orm/pglite/migrator");
     await migrate(db, { migrationsFolder: MIGRATIONS });
+    await seed(db as unknown as DB);
     holder.db = db as unknown as DB;
     holder.kind = "pglite";
   }
-  if (process.env.SEED_DEMO !== "false") {
-    const { ensureDemoData } = await import("@/server/seed");
-    await ensureDemoData(holder.db!);
-  }
+}
+
+async function seed(db: DB) {
+  if (process.env.SEED_DEMO === "false") return;
+  const { ensureDemoData } = await import("@/server/seed");
+  await ensureDemoData(db);
 }
 
 /** Returnerer en klar database (migreret og evt. seedet). */

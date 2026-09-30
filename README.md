@@ -76,8 +76,12 @@ npm run db:generate  # ny migrering efter ændring i src/db/schema.ts
 npm run db:migrate   # kør migreringer mod DATABASE_URL
 ```
 
-## Deploy (Vercel + Supabase/Neon)
+## Deploy (Vercel + Neon)
 
-1. Opret en Postgres-database og sæt `DATABASE_URL`.
-2. Sæt `AUTH_SECRET` (mindst 32 tilfældige tegn) og `APP_URL`.
-3. Deploy. Migreringer køres ved første request. Sæt `SEED_DEMO=false` i produktion, hvis I ikke vil have demovirksomheden med.
+1. Gå til [vercel.com/new](https://vercel.com/new), vælg **Import Git Repository**, og vælg dette repo. Vercel finder selv ud af, at det er Next.js.
+2. Under **Environment Variables** sætter I `AUTH_SECRET` til mindst 32 tilfældige tegn (fx fra `openssl rand -base64 32`).
+3. Klik **Deploy**.
+4. Åbn projektet, og tilføj en database under **Storage → Neon (Postgres) → Connect**. Så sætter Vercel selv `DATABASE_URL` og `DATABASE_URL_UNPOOLED`. Deploy derefter igen under **Deployments → Redeploy**.
+5. Første request migrerer databasen og opretter demovirksomheden, hvilket tager ca. 10–20 sekunder. På `/login` kan I logge ind med ét klik som en af demobrugerne.
+
+Hvis appen kører uden `DATABASE_URL` på Vercel, bruger den en midlertidig PGlite i `/tmp`. Hver serverinstans får så sin egen database, og data forsvinder ved genstart, så I bør altid tilknytte Postgres. Flere instanser kan starte på samme tid, så migrering og seeding er beskyttet af en advisory lock. Sæt `APP_URL` til jeres domæne, når I går live, og `SEED_DEMO=false`, hvis demovirksomheden ikke skal med.
